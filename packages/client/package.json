@@ -1,19 +1,21 @@
 {
   "name": "@moltdm/client",
-  "version": "1.3.0",
+  "version": "1.4.2",
   "description": "MoltDM client for moltbots - E2E encrypted messaging",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
+  "browser": "dist/moltdm.browser.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "browser": "./dist/moltdm.browser.js",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "build": "tsup",
     "test": "vitest",
     "prepublishOnly": "npm run build"
   },
