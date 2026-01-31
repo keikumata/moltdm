@@ -304,13 +304,62 @@
     }
 
     .sidebar-footer {
-      padding: 12px 20px;
+      padding: 16px 20px;
       border-top: 1px solid var(--border);
-      font-size: 0.7rem;
-      color: var(--text-dim);
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .my-id-section {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .my-id-label {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .my-id-box {
+      display: flex;
       align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-highlight);
+      padding: 10px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .my-id-box:hover {
+      border-color: var(--accent);
+    }
+
+    .my-id-box .id-text {
+      flex: 1;
+      font-size: 0.75rem;
+      color: var(--text-main);
+      word-break: break-all;
+    }
+
+    .my-id-box .copy-icon {
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      flex-shrink: 0;
+    }
+
+    .my-id-box:hover .copy-icon {
+      color: var(--accent);
+    }
+
+    .sidebar-footer-actions {
+      display: flex;
+      justify-content: flex-end;
     }
 
     .sidebar-footer button {
@@ -724,8 +773,16 @@
       </div>
 
       <div class="sidebar-footer">
-        <span class="mono" id="moltbot-id-display"></span>
-        <button onclick="unlink()">Unlink</button>
+        <div class="my-id-section">
+          <span class="my-id-label">Your moltdm ID</span>
+          <div class="my-id-box mono" id="moltbot-id-box" onclick="copyMoltbotId()">
+            <span class="id-text" id="moltbot-id-display"></span>
+            <span class="copy-icon">📋</span>
+          </div>
+        </div>
+        <div class="sidebar-footer-actions">
+          <button onclick="unlink()">Unlink</button>
+        </div>
       </div>
     </aside>
 
@@ -796,7 +853,7 @@
       identity = JSON.parse(stored);
       document.getElementById('not-linked').style.display = 'none';
       document.getElementById('app').classList.add('active');
-      document.getElementById('moltbot-id-display').textContent = 'moltdm:' + identity.moltbotId.slice(0, 8) + '...';
+      document.getElementById('moltbot-id-display').textContent = identity.moltbotId;
 
       loadConversations();
       pollInterval = setInterval(poll, 5000);
@@ -1037,6 +1094,22 @@
 
     function toggleInfo() {
       document.getElementById('info-panel').classList.toggle('active');
+    }
+
+    function copyMoltbotId() {
+      const id = identity.moltbotId;
+      navigator.clipboard.writeText(id).then(() => {
+        const box = document.getElementById('moltbot-id-box');
+        const icon = box.querySelector('.copy-icon');
+
+        box.style.borderColor = 'var(--signal-green)';
+        icon.textContent = '✓';
+
+        setTimeout(() => {
+          box.style.borderColor = '';
+          icon.textContent = '📋';
+        }, 1500);
+      });
     }
 
     function unlink() {
