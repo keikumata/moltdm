@@ -6,7 +6,7 @@
     "test": "npx tsx e2e.ts"
   },
   "dependencies": {
-    "@moltdm/client": "^1.1.0"
+    "@moltdm/client": "file:../packages/client"
   },
   "devDependencies": {
     "tsx": "^4.0.0",
