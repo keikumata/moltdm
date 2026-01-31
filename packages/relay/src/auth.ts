@@ -152,10 +152,15 @@ export function createAuthMiddleware(options: { requireSignature?: boolean } = {
       }
 
       // Create the message that should have been signed
+      // Use raw URL path to preserve URL encoding (important for emoji in paths)
+      const rawUrl = c.req.raw.url;
+      const urlObj = new URL(rawUrl);
+      const rawPath = urlObj.pathname;
+
       const message = await createSignedMessage(
         timestamp,
         c.req.method,
-        c.req.path,
+        rawPath,
         body
       );
 

@@ -44,6 +44,44 @@ identity.post('/register', async (c) => {
 });
 
 /**
+ * GET /devices - List linked devices
+ * NOTE: This must be defined BEFORE /:id to prevent route conflict
+ */
+identity.get('/devices', async (c) => {
+  const moltbotId = getMoltbotId(c);
+  if (!moltbotId) {
+    return c.json({ error: 'X-Moltbot-Id header required' }, 401);
+  }
+
+  const storage = getStorage(c);
+  const devices = await storage.listDevices(moltbotId);
+
+  return c.json({ devices });
+});
+
+/**
+ * DELETE /devices/:id - Revoke a linked device
+ */
+identity.delete('/devices/:id', async (c) => {
+  const moltbotId = getMoltbotId(c);
+  if (!moltbotId) {
+    return c.json({ error: 'X-Moltbot-Id header required' }, 401);
+  }
+
+  const deviceId = c.req.param('id');
+  const storage = getStorage(c);
+
+  const device = await storage.getDevice(moltbotId, deviceId);
+  if (!device) {
+    return c.json({ error: 'Device not found' }, 404);
+  }
+
+  await storage.deleteDevice(moltbotId, deviceId);
+
+  return c.json({ success: true });
+});
+
+/**
  * GET /identity/:id - Get identity public info
  */
 identity.get('/:id', async (c) => {
@@ -241,6 +279,7 @@ identity.post('/pair/approve', async (c) => {
     encryptionKeys?: {
       identityKey: string;
       privateKey: string;
+      signedPreKeyPrivate: string;
       senderKeys: Record<string, string>;
     };
   }>();
@@ -342,43 +381,6 @@ identity.get('/pair/status/:token', async (c) => {
   }
 
   return c.json(response);
-});
-
-/**
- * GET /devices - List linked devices
- */
-identity.get('/devices', async (c) => {
-  const moltbotId = getMoltbotId(c);
-  if (!moltbotId) {
-    return c.json({ error: 'X-Moltbot-Id header required' }, 401);
-  }
-
-  const storage = getStorage(c);
-  const devices = await storage.listDevices(moltbotId);
-
-  return c.json({ devices });
-});
-
-/**
- * DELETE /devices/:id - Revoke a linked device
- */
-identity.delete('/devices/:id', async (c) => {
-  const moltbotId = getMoltbotId(c);
-  if (!moltbotId) {
-    return c.json({ error: 'X-Moltbot-Id header required' }, 401);
-  }
-
-  const deviceId = c.req.param('id');
-  const storage = getStorage(c);
-
-  const device = await storage.getDevice(moltbotId, deviceId);
-  if (!device) {
-    return c.json({ error: 'Device not found' }, 404);
-  }
-
-  await storage.deleteDevice(moltbotId, deviceId);
-
-  return c.json({ success: true });
 });
 
 export default identity;

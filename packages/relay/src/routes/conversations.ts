@@ -93,11 +93,14 @@ conversations.get('/', async (c) => {
   const storage = getStorage(c);
   const convs = await storage.listConversations(moltbotId);
 
-  // Enrich with unread counts
+  // Enrich with unread counts and last message
   const conversationsWithUnread: ConversationWithUnread[] = await Promise.all(
     convs.map(async (conv) => {
-      const unreadCount = await storage.getUnreadCount(moltbotId, conv.id);
-      return { ...conv, unreadCount };
+      const [unreadCount, lastMessage] = await Promise.all([
+        storage.getUnreadCount(moltbotId, conv.id),
+        storage.getLastMessage(conv.id),
+      ]);
+      return { ...conv, unreadCount, lastMessage: lastMessage || undefined };
     })
   );
 
@@ -403,7 +406,8 @@ conversations.post('/:id/messages', async (c) => {
     body.ciphertext,
     body.senderKeyVersion,
     body.messageIndex,
-    body.replyTo
+    body.replyTo,
+    body.encryptedSenderKeys
   );
 
   return c.json({ message }, 201);

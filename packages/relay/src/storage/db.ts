@@ -371,7 +371,8 @@ export class DatabaseStorage {
     ciphertext: string,
     senderKeyVersion: number,
     messageIndex: number,
-    replyTo?: string
+    replyTo?: string,
+    encryptedSenderKeys?: Record<string, string>
   ): Promise<Message> {
     const id = `msg_${generateUlid()}`;
     const now = new Date().toISOString();
@@ -383,12 +384,14 @@ export class DatabaseStorage {
       expiresAt = new Date(Date.now() + conv.disappearingTimer * 1000).toISOString();
     }
 
+    const encryptedKeysJson = encryptedSenderKeys ? JSON.stringify(encryptedSenderKeys) : null;
+
     await this.db
       .prepare(
-        `INSERT INTO messages (id, conversation_id, from_id, ciphertext, sender_key_version, message_index, reply_to, expires_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO messages (id, conversation_id, from_id, ciphertext, sender_key_version, message_index, reply_to, expires_at, encrypted_sender_keys, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .bind(id, convId, fromId, ciphertext, senderKeyVersion, messageIndex, replyTo || null, expiresAt, now)
+      .bind(id, convId, fromId, ciphertext, senderKeyVersion, messageIndex, replyTo || null, expiresAt, encryptedKeysJson, now)
       .run();
 
     // Update conversation timestamp
@@ -406,6 +409,7 @@ export class DatabaseStorage {
       messageIndex,
       replyTo,
       expiresAt: expiresAt || undefined,
+      encryptedSenderKeys,
       createdAt: now,
     };
   }
@@ -462,7 +466,25 @@ export class DatabaseStorage {
     return result.meta.changes || 0;
   }
 
+  async getLastMessage(convId: string): Promise<Message | null> {
+    const now = new Date().toISOString();
+    const row = await this.db
+      .prepare(
+        `SELECT * FROM messages
+         WHERE conversation_id = ?
+           AND (expires_at IS NULL OR expires_at > ?)
+         ORDER BY created_at DESC
+         LIMIT 1`
+      )
+      .bind(convId, now)
+      .first();
+
+    if (!row) return null;
+    return this.rowToMessage(row);
+  }
+
   private rowToMessage(row: Record<string, unknown>): Message {
+    const encryptedSenderKeysRaw = row.encrypted_sender_keys as string | null;
     return {
       id: row.id as string,
       conversationId: row.conversation_id as string,
@@ -472,6 +494,7 @@ export class DatabaseStorage {
       messageIndex: row.message_index as number,
       replyTo: row.reply_to as string | undefined,
       expiresAt: row.expires_at as string | undefined,
+      encryptedSenderKeys: encryptedSenderKeysRaw ? JSON.parse(encryptedSenderKeysRaw) : undefined,
       createdAt: row.created_at as string,
     };
   }
@@ -921,6 +944,8 @@ export class DatabaseStorage {
 
     if (!req) return null;
 
+    const encryptionKeysRaw = req.encryption_keys as string | null;
+
     return {
       token: req.token as string,
       moltbotId: req.moltbot_id as string,
@@ -929,14 +954,16 @@ export class DatabaseStorage {
       status: req.status as 'pending' | 'approved' | 'rejected',
       createdAt: req.created_at as string,
       expiresAt: req.expires_at as string,
+      encryptionKeys: encryptionKeysRaw ? JSON.parse(encryptionKeysRaw) : undefined,
     };
   }
 
   async savePairingRequest(request: PairingRequest): Promise<void> {
+    const encryptionKeysJson = request.encryptionKeys ? JSON.stringify(request.encryptionKeys) : null;
     await this.db
       .prepare(
-        `INSERT OR REPLACE INTO pairing_requests (token, moltbot_id, device_public_key, device_name, status, created_at, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+        `INSERT OR REPLACE INTO pairing_requests (token, moltbot_id, device_public_key, device_name, status, created_at, expires_at, encryption_keys)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         request.token,
@@ -945,7 +972,8 @@ export class DatabaseStorage {
         request.deviceName || null,
         request.status,
         request.createdAt,
-        request.expiresAt
+        request.expiresAt,
+        encryptionKeysJson
       )
       .run();
   }

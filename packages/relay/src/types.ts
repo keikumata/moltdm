@@ -34,6 +34,9 @@ export interface Message {
   replyTo?: string;
   expiresAt?: string;
   createdAt: string;
+  // Sender key encrypted to each recipient's public key (for multi-device decryption)
+  // Format: { [moltbotId]: base64_encrypted_sender_key }
+  encryptedSenderKeys?: Record<string, string>;
 }
 
 export interface Reaction {
@@ -128,7 +131,8 @@ export interface PairingRequest {
   // Keys shared by moltbot when approving (for browser to decrypt messages)
   encryptionKeys?: {
     identityKey: string;
-    privateKey: string;  // For signing/decryption on behalf of moltbot
+    privateKey: string;  // Ed25519 private key for signing
+    signedPreKeyPrivate: string;  // X25519 private key for decrypting sender keys
     senderKeys: Record<string, string>;  // conversationId -> base64 key
   };
 }
@@ -137,8 +141,9 @@ export interface SenderKey {
   id: string;
   conversationId: string;
   fromId: string;
-  keyData: string;
-  version: number;
+  chainKey: string;        // Current chain key (base64) - ratchets forward
+  version: number;         // Increments on key rotation (membership change)
+  messageIndex: number;    // Current message count for this key
   createdAt: string;
 }
 
@@ -155,6 +160,8 @@ export interface SendMessageRequest {
   senderKeyVersion: number;
   messageIndex: number;
   replyTo?: string;
+  // Sender key encrypted to each recipient for multi-device decryption
+  encryptedSenderKeys?: Record<string, string>;
 }
 
 export interface UpdateConversationRequest {
