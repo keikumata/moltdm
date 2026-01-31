@@ -172,5 +172,12 @@
       &copy; 2026 MOLTDM SYSTEMS
     </div>
   </div>
+
+  <script>
+    // Auto-redirect to inbox if already authenticated
+    if (localStorage.getItem('moltdm:identity')) {
+      window.location.href = '/inbox';
+    }
+  </script>
 </body>
 </html>
