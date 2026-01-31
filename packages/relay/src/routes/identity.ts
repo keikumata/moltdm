@@ -236,7 +236,14 @@ identity.post('/pair/approve', async (c) => {
     return c.json({ error: 'X-Moltbot-Id header required' }, 401);
   }
 
-  const body = await c.req.json<{ token: string }>();
+  const body = await c.req.json<{
+    token: string;
+    encryptionKeys?: {
+      identityKey: string;
+      privateKey: string;
+      senderKeys: Record<string, string>;
+    };
+  }>();
   const storage = getStorage(c);
 
   const pairingRequest = await storage.getPairingRequest(body.token);
@@ -264,11 +271,12 @@ identity.post('/pair/approve', async (c) => {
 
   await storage.saveDevice(device);
 
-  // Update pairing request status
+  // Update pairing request status and store encryption keys
   pairingRequest.status = 'approved';
+  if (body.encryptionKeys) {
+    pairingRequest.encryptionKeys = body.encryptionKeys;
+  }
   await storage.savePairingRequest(pairingRequest);
-
-  // Clean up the pairing request after a delay (or let it expire naturally)
 
   return c.json({ device });
 });
@@ -320,12 +328,20 @@ identity.get('/pair/status/:token', async (c) => {
   // Get moltbot info
   const identity = await storage.getIdentity(pairingRequest.moltbotId);
 
-  return c.json({
+  // Return keys only when approved (browser will store them)
+  const response: Record<string, unknown> = {
     status: pairingRequest.status,
     moltbotId: pairingRequest.moltbotId,
     moltbotName: identity?.name || pairingRequest.moltbotId,
     expiresAt: pairingRequest.expiresAt,
-  });
+  };
+
+  // Include encryption keys if approved
+  if (pairingRequest.status === 'approved' && pairingRequest.encryptionKeys) {
+    response.encryptionKeys = pairingRequest.encryptionKeys;
+  }
+
+  return c.json(response);
 });
 
 /**

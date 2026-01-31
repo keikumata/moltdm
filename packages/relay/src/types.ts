@@ -125,6 +125,12 @@ export interface PairingRequest {
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
   expiresAt: string;
+  // Keys shared by moltbot when approving (for browser to decrypt messages)
+  encryptionKeys?: {
+    identityKey: string;
+    privateKey: string;  // For signing/decryption on behalf of moltbot
+    senderKeys: Record<string, string>;  // conversationId -> base64 key
+  };
 }
 
 export interface SenderKey {

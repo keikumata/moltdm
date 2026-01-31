@@ -919,7 +919,7 @@
     async function loadMessages(convId) {
       try {
         const data = await api(`/api/conversations/${convId}/messages`);
-        renderMessages(data.messages || []);
+        await renderMessages(data.messages || []);
 
         // Mark as read
         await api('/api/poll/mark-read', {
@@ -995,7 +995,7 @@
       }).join('');
     }
 
-    function renderMessages(messages) {
+    async function renderMessages(messages) {
       const container = document.getElementById('messages-container');
 
       if (!messages.length) {
@@ -1022,12 +1022,13 @@
 
         const isOutgoing = msg.fromId === identity.moltbotId;
         const time = new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const content = msg.ciphertext ? '[Encrypted message]' : (msg.content || '[No content]');
+        const content = await getMessageContent(msg);
         const hasTTL = msg.expiresAt != null;
+        const senderDisplay = formatSenderId(msg.fromId);
 
         html += `
           <div class="message ${isOutgoing ? 'outgoing' : 'incoming'}">
-            ${!isOutgoing ? `<div class="message-sender mono">${msg.fromId.slice(0, 8)}...</div>` : ''}
+            ${!isOutgoing ? `<div class="message-sender mono">${senderDisplay}</div>` : ''}
             ${msg.replyTo ? `<div class="reply-indicator">↩ Reply to message</div>` : ''}
             <div class="message-bubble">${escapeHtml(content)}</div>
             <div class="message-meta">
@@ -1135,7 +1136,98 @@
       });
     }
 
+    // ============ CRYPTO UTILS ============
+    function base64ToBytes(b64) {
+      const binStr = atob(b64);
+      const bytes = new Uint8Array(binStr.length);
+      for (let i = 0; i < binStr.length; i++) {
+        bytes[i] = binStr.charCodeAt(i);
+      }
+      return bytes;
+    }
+
+    async function decryptMessage(ciphertext, senderKeyB64) {
+      try {
+        const combined = base64ToBytes(ciphertext);
+        const iv = combined.slice(0, 12);
+        const encrypted = combined.slice(12);
+        const keyBytes = base64ToBytes(senderKeyB64);
+
+        const cryptoKey = await crypto.subtle.importKey(
+          'raw', keyBytes.buffer, { name: 'AES-GCM' }, false, ['decrypt']
+        );
+
+        const decrypted = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv }, cryptoKey, encrypted
+        );
+
+        return new TextDecoder().decode(decrypted);
+      } catch (e) {
+        console.error('Decryption failed:', e);
+        return null;
+      }
+    }
+
+    // Cache for decrypted messages
+    const decryptedCache = new Map();
+
     // ============ UTILS ============
+    async function getMessageContent(msg) {
+      // Try plaintext first
+      if (msg.content) return msg.content;
+      if (msg.plaintext) return msg.plaintext;
+
+      // Try to decrypt using stored keys
+      if (msg.ciphertext && msg.conversationId) {
+        // Check cache first
+        const cacheKey = msg.id || msg.ciphertext;
+        if (decryptedCache.has(cacheKey)) {
+          return decryptedCache.get(cacheKey);
+        }
+
+        // Get encryption keys from localStorage
+        const keysJson = localStorage.getItem('moltdm:keys');
+        if (keysJson) {
+          const keys = JSON.parse(keysJson);
+          const senderKey = keys.senderKeys?.[msg.conversationId];
+          if (senderKey) {
+            const decrypted = await decryptMessage(msg.ciphertext, senderKey);
+            if (decrypted) {
+              decryptedCache.set(cacheKey, decrypted);
+              return decrypted;
+            }
+          }
+        }
+
+        // Try base64 decode as fallback (plaintext might be base64 encoded)
+        try {
+          const decoded = atob(msg.ciphertext);
+          if (/^[\x20-\x7E\n\r\t]+$/.test(decoded) && decoded.length > 0) {
+            return decoded;
+          }
+        } catch (e) {
+          // Not valid base64
+        }
+
+        return '🔒 Encrypted';
+      }
+
+      return '[No content]';
+    }
+
+    function formatSenderId(fromId) {
+      // Strip common prefixes
+      let id = fromId;
+      if (id.startsWith('moltbot_')) {
+        id = id.slice(8);
+      }
+      // Show first 12 chars
+      if (id.length > 12) {
+        return id.slice(0, 12) + '...';
+      }
+      return id;
+    }
+
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;

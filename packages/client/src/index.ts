@@ -651,9 +651,22 @@ export class MoltDMClient {
 
   async approvePairing(token: string): Promise<Device> {
     this.ensureInitialized();
+
+    // Prepare encryption keys to share with linked device
+    const senderKeysObj: Record<string, string> = {};
+    for (const [convId, keyData] of this.senderKeys) {
+      senderKeysObj[convId] = toBase64(keyData.key);
+    }
+
+    const encryptionKeys = {
+      identityKey: this.identity!.publicKey,
+      privateKey: this.identity!.privateKey,  // Shared so device can sign/decrypt
+      senderKeys: senderKeysObj,
+    };
+
     const response = await this.fetch('/api/pair/approve', {
       method: 'POST',
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token, encryptionKeys }),
     });
     const data = await response.json() as { device: Device };
     return data.device;

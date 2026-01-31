@@ -347,6 +347,8 @@
 
           if (data.status === 'approved') {
             const pending = JSON.parse(localStorage.getItem('moltdm:pending') || '{}');
+
+            // Store identity
             localStorage.setItem('moltdm:identity', JSON.stringify({
               deviceId: data.deviceId,
               moltbotId: data.moltbotId,
@@ -354,6 +356,12 @@
               deviceName: pending.deviceName,
               linkedAt: new Date().toISOString()
             }));
+
+            // Store encryption keys for decrypting messages
+            if (data.encryptionKeys) {
+              localStorage.setItem('moltdm:keys', JSON.stringify(data.encryptionKeys));
+            }
+
             localStorage.removeItem('moltdm:pending');
 
             document.getElementById('waiting').classList.add('hidden');
