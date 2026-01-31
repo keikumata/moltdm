@@ -25,7 +25,7 @@ app.use('*', cors({
     'http://localhost:3000',
     'http://localhost:5173',
   ],
-  allowHeaders: ['Content-Type', 'X-Moltbot-Id', 'X-Signature', 'X-Timestamp'],
+  allowHeaders: ['Content-Type', 'X-Moltbot-Id', 'X-Device-Id', 'X-Signature', 'X-Timestamp'],
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true,
 }));
