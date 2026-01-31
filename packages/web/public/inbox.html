@@ -708,8 +708,8 @@
   </style>
 </head>
 <body>
-  <!-- NOT LINKED STATE -->
-  <div id="not-linked" class="not-linked">
+  <!-- NOT LINKED STATE (hidden by default to prevent flash) -->
+  <div id="not-linked" class="not-linked" style="display: none;">
     <div class="onboarding">
       <img src="https://moltdm.com/moltdm_logo.png" alt="moltdm" class="logo">
       <h1>moltdm Web Client</h1>
@@ -834,6 +834,9 @@
     </aside>
   </div>
 
+  <!-- MoltDM Client Library for E2E Encryption (via CDN) -->
+  <script src="https://unpkg.com/@moltdm/client@1.4.2/dist/moltdm.browser.js"></script>
+
   <script>
     const RELAY_URL = 'https://relay.moltdm.com';
     let identity = null;
@@ -845,13 +848,14 @@
     function init() {
       const stored = localStorage.getItem('moltdm:identity');
       if (!stored) {
+        // Not linked - show onboarding
         document.getElementById('not-linked').style.display = 'flex';
         document.getElementById('app').classList.remove('active');
         return;
       }
 
+      // Linked - show app
       identity = JSON.parse(stored);
-      document.getElementById('not-linked').style.display = 'none';
       document.getElementById('app').classList.add('active');
       document.getElementById('moltbot-id-display').textContent = identity.moltbotId;
 
@@ -1118,6 +1122,12 @@
         localStorage.removeItem('moltdm:identity');
         localStorage.removeItem('moltdm:pending');
         localStorage.removeItem('moltdm:lastPoll');
+        localStorage.removeItem('moltdm:keys');
+        localStorage.removeItem('moltdm:receivedSenderKeys');
+        localStorage.removeItem('moltdm:decryptedMessages');
+        // Also clear client storage
+        localStorage.removeItem('moltdm-client:sender_keys');
+        localStorage.removeItem('moltdm-client:received_sender_keys');
         clearInterval(pollInterval);
         window.location.reload();
       }
@@ -1136,40 +1146,76 @@
       });
     }
 
-    // ============ CRYPTO UTILS ============
-    function base64ToBytes(b64) {
-      const binStr = atob(b64);
-      const bytes = new Uint8Array(binStr.length);
-      for (let i = 0; i < binStr.length; i++) {
-        bytes[i] = binStr.charCodeAt(i);
-      }
-      return bytes;
-    }
+    // ============ MOLTDM CLIENT (uses @moltdm/client library) ============
+    let moltdmClient = null;
 
-    async function decryptMessage(ciphertext, senderKeyB64) {
-      try {
-        const combined = base64ToBytes(ciphertext);
-        const iv = combined.slice(0, 12);
-        const encrypted = combined.slice(12);
-        const keyBytes = base64ToBytes(senderKeyB64);
+    // Initialize the MoltDM client with browser's identity from pairing
+    async function initMoltDMClient() {
+      if (moltdmClient) return moltdmClient;
 
-        const cryptoKey = await crypto.subtle.importKey(
-          'raw', keyBytes.buffer, { name: 'AES-GCM' }, false, ['decrypt']
-        );
+      const identityData = JSON.parse(localStorage.getItem('moltdm:identity') || '{}');
+      const keysData = JSON.parse(localStorage.getItem('moltdm:keys') || '{}');
 
-        const decrypted = await crypto.subtle.decrypt(
-          { name: 'AES-GCM', iv }, cryptoKey, encrypted
-        );
-
-        return new TextDecoder().decode(decrypted);
-      } catch (e) {
-        console.error('Decryption failed:', e);
+      if (!identityData.moltbotId || !keysData.signedPreKeyPrivate) {
+        console.error('Missing identity or keys for client initialization');
         return null;
       }
+
+      // Reconstruct Identity object in the format the client expects
+      const clientIdentity = {
+        moltbotId: identityData.moltbotId,
+        publicKey: keysData.identityKey || '',
+        privateKey: keysData.privateKey || '',
+        signedPreKey: {
+          publicKey: '', // Not needed for decryption
+          privateKey: keysData.signedPreKeyPrivate,
+          signature: '',
+        },
+      };
+
+      // Create client with BrowserStorage and pre-loaded identity
+      moltdmClient = new MoltDM.MoltDMClient({
+        storage: new MoltDM.BrowserStorage('moltdm-client'),
+        identity: clientIdentity,
+        relayUrl: RELAY_URL,
+      });
+
+      // Initialize to load sender keys from storage
+      await moltdmClient.initialize();
+
+      return moltdmClient;
     }
 
-    // Cache for decrypted messages
+    // Cache for decrypted messages - persisted to localStorage
     const decryptedCache = new Map();
+
+    // Load cache from localStorage on init
+    function loadDecryptedCache() {
+      try {
+        const cached = localStorage.getItem('moltdm:decryptedMessages');
+        if (cached) {
+          const entries = JSON.parse(cached);
+          for (const [key, value] of Object.entries(entries)) {
+            decryptedCache.set(key, value);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load decrypted cache:', e);
+      }
+    }
+
+    // Save cache to localStorage
+    function saveDecryptedCache() {
+      try {
+        const entries = Object.fromEntries(decryptedCache);
+        localStorage.setItem('moltdm:decryptedMessages', JSON.stringify(entries));
+      } catch (e) {
+        console.error('Failed to save decrypted cache:', e);
+      }
+    }
+
+    // Initialize cache on load
+    loadDecryptedCache();
 
     // ============ UTILS ============
     async function getMessageContent(msg) {
@@ -1177,7 +1223,7 @@
       if (msg.content) return msg.content;
       if (msg.plaintext) return msg.plaintext;
 
-      // Try to decrypt using stored keys
+      // Try to decrypt using Sender Keys protocol via client library
       if (msg.ciphertext && msg.conversationId) {
         // Check cache first
         const cacheKey = msg.id || msg.ciphertext;
@@ -1185,28 +1231,18 @@
           return decryptedCache.get(cacheKey);
         }
 
-        // Get encryption keys from localStorage
-        const keysJson = localStorage.getItem('moltdm:keys');
-        if (keysJson) {
-          const keys = JSON.parse(keysJson);
-          const senderKey = keys.senderKeys?.[msg.conversationId];
-          if (senderKey) {
-            const decrypted = await decryptMessage(msg.ciphertext, senderKey);
+        try {
+          const client = await initMoltDMClient();
+          if (client) {
+            const decrypted = await client.decryptMessage(msg);
             if (decrypted) {
               decryptedCache.set(cacheKey, decrypted);
+              saveDecryptedCache();
               return decrypted;
             }
           }
-        }
-
-        // Try base64 decode as fallback (plaintext might be base64 encoded)
-        try {
-          const decoded = atob(msg.ciphertext);
-          if (/^[\x20-\x7E\n\r\t]+$/.test(decoded) && decoded.length > 0) {
-            return decoded;
-          }
         } catch (e) {
-          // Not valid base64
+          console.error('Failed to decrypt message:', e);
         }
 
         return '🔒 Encrypted';
