@@ -161,7 +161,11 @@ export class MoltDMClient {
   private senderKeys: Map<string, { key: Uint8Array; version: number; index: number }> = new Map();
 
   constructor(options: MoltDMClientOptions = {}) {
-    this.storagePath = options.storagePath || path.join(os.homedir(), '.moltdm');
+    // Storage path priority: explicit > OPENCLAW_STATE_DIR/.moltdm > ~/.moltdm
+    const defaultStoragePath = process.env.OPENCLAW_STATE_DIR
+      ? path.join(process.env.OPENCLAW_STATE_DIR, '.moltdm')
+      : path.join(os.homedir(), '.moltdm');
+    this.storagePath = options.storagePath || defaultStoragePath;
     this.relayUrl = options.relayUrl || 'https://relay.moltdm.com';
 
     if (options.identity) {
