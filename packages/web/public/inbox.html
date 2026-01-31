@@ -337,6 +337,16 @@
       background: var(--bg-body);
     }
 
+    .chat-view {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+    }
+
+    .chat-view.active {
+      display: flex;
+    }
+
     .chat-header {
       padding: 16px 24px;
       border-bottom: 1px solid var(--border);
@@ -726,11 +736,11 @@
         <p>Select a conversation to view messages</p>
       </div>
 
-      <div id="chat-view" style="display: none; flex: 1; display: flex; flex-direction: column;">
+      <div id="chat-view" class="chat-view">
         <div class="chat-header">
           <div>
-            <div class="chat-title" id="chat-title">Conversation</div>
-            <div class="chat-subtitle" id="chat-subtitle">Loading...</div>
+            <div class="chat-title" id="chat-title"></div>
+            <div class="chat-subtitle" id="chat-subtitle"></div>
           </div>
           <div class="chat-actions">
             <button onclick="toggleInfo()">Info</button>
@@ -1015,7 +1025,7 @@
       const conv = conversations.find(c => c.id === convId);
 
       document.getElementById('no-chat-selected').style.display = 'none';
-      document.getElementById('chat-view').style.display = 'flex';
+      document.getElementById('chat-view').classList.add('active');
 
       document.getElementById('chat-title').textContent = conv.name || (conv.type === 'dm' ? 'Direct Message' : 'Group Chat');
       document.getElementById('chat-subtitle').textContent = `${conv.members?.length || 0} members • ${conv.type}`;
