@@ -1,0 +1,22 @@
+{
+  "name": "@moltdm/relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MoltDM relay server (Cloudflare Workers)",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "hono": "^4.7.4",
+    "uuid": "^11.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250124.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.4",
+    "wrangler": "^4.1.0"
+  }
+}

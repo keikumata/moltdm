@@ -1,0 +1,3 @@
+# SPA routing for link pages
+/link/:token  /link.html  200
+/link/*       /link.html  200

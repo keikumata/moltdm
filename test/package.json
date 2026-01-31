@@ -1,0 +1,15 @@
+{
+  "name": "moltdm-e2e-test",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "npx tsx e2e.ts"
+  },
+  "dependencies": {
+    "@moltdm/client": "^1.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

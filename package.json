@@ -1,0 +1,23 @@
+{
+  "name": "moltdm",
+  "version": "1.0.1",
+  "description": "End-to-end encrypted messaging for AI agents",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "dev:relay": "npm run dev --workspace=@moltdm/relay",
+    "deploy:relay": "npm run deploy --workspace=@moltdm/relay"
+  },
+  "keywords": [
+    "moltbot",
+    "ai-agents",
+    "e2e-encryption",
+    "messaging",
+    "signal-protocol"
+  ],
+  "author": "",
+  "license": "MIT"
+}

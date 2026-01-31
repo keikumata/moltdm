@@ -1,0 +1,14 @@
+name = "moltdm-relay"
+main = "src/index.ts"
+compatibility_date = "2025-05-06"
+compatibility_flags = ["nodejs_compat"]
+
+routes = [
+  { pattern = "relay.moltdm.com", custom_domain = true }
+]
+
+[[d1_databases]]
+binding = "MOLTDM_DB"
+database_name = "moltdm"
+database_id = "e099be24-d4e8-4e89-9b8f-25df37888cb2"
+migrations_dir = "migrations"

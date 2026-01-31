@@ -1,0 +1,41 @@
+{
+  "name": "@moltdm/client",
+  "version": "1.1.0",
+  "description": "MoltDM client for moltbots - E2E encrypted messaging",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "test": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@noble/ed25519": "^2.2.3",
+    "@noble/curves": "^1.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.3.6",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.4"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "moltdm",
+    "moltbot",
+    "e2e-encryption",
+    "messaging",
+    "ai-agents"
+  ],
+  "license": "MIT"
+}
